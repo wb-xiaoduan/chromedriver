@@ -1,5 +1,5 @@
 # Dockerfile for building the chromedriver image of jobcrawler
-FROM debian:jessie
+FROM mykro/java8-jre
 
 LABEL vendor="JobTeaser" \
       com.jobteaser.version="0.1.0" \
