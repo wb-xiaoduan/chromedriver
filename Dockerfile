@@ -1,43 +1,32 @@
-#
-# Chromedriver Dockerfile
-#
+# Dockerfile for building the chromedriver image of jobcrawler
+FROM debian:jessie
 
-FROM blueimp/basedriver
+LABEL vendor="JobTeaser" \
+      com.jobteaser.version="0.1.0" \
+      com.jobteaser.release-date="2018-07-13" \
+      maintainer="dev@jobteaser.com"
 
-# Install the latest versions of Google Chrome and Chromedriver:
-RUN export DEBIAN_FRONTEND=noninteractive \
-  && apt-get update \
-  && apt-get install \
-    unzip \
-  && \
-  DL=https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
-  && curl -sL "$DL" > /tmp/chrome.deb \
-  && apt install --no-install-recommends --no-install-suggests -y \
-    /tmp/chrome.deb \
-  && CHROMIUM_FLAGS='--no-sandbox --disable-dev-shm-usage' \
-  # Patch Chrome launch script and append CHROMIUM_FLAGS to the last line:
-  && sed -i '${s/$/'" $CHROMIUM_FLAGS"'/}' /opt/google/chrome/google-chrome \
-  && BASE_URL=https://chromedriver.storage.googleapis.com \
-  && VERSION=$(curl -sL "$BASE_URL/LATEST_RELEASE") \
-  && curl -sL "$BASE_URL/$VERSION/chromedriver_linux64.zip" -o /tmp/driver.zip \
-  && unzip /tmp/driver.zip \
-  && chmod 755 chromedriver \
-  && mv chromedriver /usr/local/bin/ \
-  # Remove obsolete files:
-  && apt-get autoremove --purge -y \
-    unzip \
-  && apt-get clean \
-  && rm -rf \
-    /tmp/* \
-    /usr/share/doc/* \
-    /var/cache/* \
-    /var/lib/apt/lists/* \
-    /var/tmp/*
+ENV CHROMEDRIVER_VERSION "2.38"
 
-USER webdriver
+# Download required packages
+RUN apt-get update && apt-get install -yqq \
+  curl \
+  unzip \
+  gnupg2
 
-ENTRYPOINT ["entrypoint", "chromedriver"]
+# Download and move chromedriver binary
+RUN mkdir -p /opt/chromedriver-$CHROMEDRIVER_VERSION \
+  && curl -sS -o /tmp/chromedriver_linux64.zip https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip \
+  && unzip -qq /tmp/chromedriver_linux64.zip -d /opt/chromedriver-$CHROMEDRIVER_VERSION \
+  && rm /tmp/chromedriver_linux64.zip \
+  && chmod +x /opt/chromedriver-$CHROMEDRIVER_VERSION/chromedriver \
+  && ln -fs /opt/chromedriver-$CHROMEDRIVER_VERSION/chromedriver /usr/local/bin/chromedriver
 
-CMD ["--port=4444", "--whitelisted-ips="]
+# Set proper source to download google-chrome-stable package and install it
+RUN curl -sS -o - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+  && echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+  && apt-get -yqq update \
+  && apt-get -yqq install google-chrome-stable
 
-EXPOSE 4444
+# Chromedriver port
+EXPOSE 9515
